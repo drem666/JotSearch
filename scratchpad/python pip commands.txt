@@ -1,0 +1,6 @@
+pip freeze > requirements.txt
+pip install -r requirements.txt
+python.exe -m pip install --upgrade pip
+pip list
+pip install langchain faiss-cpu sentence-transformers unstructured python-docx openpyxl pandas requests PyMuPDF
+

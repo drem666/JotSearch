@@ -1,0 +1,4 @@
+docker cp <container-id>:/path/in/container /path/on/host
+wsl -d docker-desktop sh
+wsl -d rancher-desktop
+wsl -d docker-desktop -u root -- echo "Default user set."
