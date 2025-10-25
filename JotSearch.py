@@ -19,7 +19,7 @@ class JotSearchApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("JotSearch v1.0 (PySide6 Edition)")
-        self.resize(1200, 900)
+        self.resize(1200, 800)
         self.dark_theme = True
         self.rg_path = self.setup_ripgrep()
 
@@ -131,8 +131,14 @@ class JotSearchApp(QWidget):
         self.search_entry.setPlaceholderText("Enter search query")
         self.search_btn = QPushButton("Search")
         self.search_btn.clicked.connect(self.run_search)
+        self.clear_btn = QPushButton("Clear")
+        self.clear_btn.clicked.connect(lambda: self.results_box.clear())
+
+        self.search_entry.returnPressed.connect(self.run_search)  # ENTER key trigger
+
         search_row.addWidget(self.search_entry)
         search_row.addWidget(self.search_btn)
+        search_row.addWidget(self.clear_btn)
 
         self.results_box = QTextEdit()
         self.results_box.setReadOnly(True)
@@ -211,8 +217,13 @@ class JotSearchApp(QWidget):
             cmd = [self.rg_path, "--color=never", "--line-number"]
             if not self.case_sensitive.isChecked():
                 cmd.append("--ignore-case")
-            if self.recurse.isChecked():
-                cmd.append("--hidden")
+            # Handle recursion depending on mode
+            mode = self.mode_combo.currentIndex()
+            if mode == 2:  # Single Folder - no recursion
+                cmd += ["--max-depth", "1"]
+            elif mode == 3 and self.recurse.isChecked():
+                cmd.append("--hidden")  # allow recursion
+
             exts = [e.strip() for e in self.ext_entry.text().split(',') if e.strip()]
             if exts:
                 cmd += ["--type-add", f"custom:*.{{{','.join(exts)}}}", "--type", "custom"]
@@ -228,10 +239,17 @@ class JotSearchApp(QWidget):
                         if self.unique_cmds.isChecked() and cmd_line in seen_cmds:
                             continue
                         seen_cmds.add(cmd_line)
+                        # Strip folder-only prefixes like "Y:/gpt-md/git-versioning:"
+                        if cmd_line.endswith(":") or cmd_line.strip().endswith(":"):
+                            continue
                         if self.show_paths.isChecked():
-                            results.append(f"{path}:\n{cmd_line}\n")
-                        else:
                             results.append(f"{cmd_line}\n")
+                        else:
+                            # Remove file path prefix (everything before first colon)
+                            parts = cmd_line.split(":", 2)
+                            cmd_text = parts[-1] if len(parts) > 1 else cmd_line
+                            results.append(f"{cmd_text.strip()}\n")
+
             except Exception as e:
                 results.append(f"Error searching {path}: {e}\n")
 
