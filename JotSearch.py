@@ -249,26 +249,47 @@ class JotSearchApp(QWidget):
                         if self.unique_cmds.isChecked() and cmd_line in seen_cmds:
                             continue
                         seen_cmds.add(cmd_line)
+                        # ----- BEGIN PATCH: output formatting per mode & show_paths -----
                         # Skip folder-only headers like "Y:/folder:"
                         if cmd_line.endswith(":") or cmd_line.strip().endswith(":"):
                             continue
 
-                        parts = cmd_line.split(":", 2)
+                        parts = cmd_line.split(":", 2)  # at most 3 parts: [file, line, match] or [line, match]
+                        mode = self.mode_combo.currentIndex()
 
-                        if self.show_paths.isChecked():
-                            # Show full path:line:command in folder mode
-                            results.append(f"{cmd_line}\n")
-                        else:
-                            # Hide file path — only show the command text
-                            if len(parts) == 3:
-                                # folder mode: drop file + line number
-                                cmd_text = parts[2]
-                            elif len(parts) == 2:
-                                # file mode: drop line number
-                                cmd_text = parts[1]
+                        # SINGLE FILE mode (index 0)
+                        if mode == 0:
+                            if self.show_paths.isChecked():
+                                # Keep line:command (or filepath:line:command if rg included file)
+                                results.append(f"{cmd_line}\n")
                             else:
-                                cmd_text = cmd_line
-                            results.append(f"{cmd_text.strip()}\n")
+                                # Hide file path / line numbers in single-file mode -> show only command text
+                                # If parts length is 3 -> parts[2] is the command
+                                # If parts length is 2 -> parts[1] is the command (typical single-file output)
+                                if len(parts) == 3:
+                                    cmd_text = parts[2]
+                                elif len(parts) == 2:
+                                    cmd_text = parts[1]
+                                else:
+                                    cmd_text = cmd_line
+                                results.append(f"{cmd_text.strip()}\n")
+
+                        # MULTIPLE FILES / FOLDERS modes (indexes 1,2,3)
+                        else:
+                            if self.show_paths.isChecked():
+                                # Always show full filepath:line:command for context
+                                results.append(f"{cmd_line}\n")
+                            else:
+                                # Hide filepath and line numbers — only show the command text
+                                if len(parts) == 3:
+                                    cmd_text = parts[2]
+                                elif len(parts) == 2:
+                                    # Defensive: if rg returned just line:match, show the match
+                                    cmd_text = parts[1]
+                                else:
+                                    cmd_text = cmd_line
+                                results.append(f"{cmd_text.strip()}\n")
+                        # ----- END PATCH -----
 
             except Exception as e:
                 results.append(f"Error searching {path}: {e}\n")

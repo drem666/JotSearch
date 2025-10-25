@@ -4,6 +4,7 @@ DRAFTS
 INFO
 data
 DebugLogs
+scratchpad
 # Specific
 build_jotsearch.py
 *.spec

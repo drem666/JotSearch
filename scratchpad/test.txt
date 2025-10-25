@@ -1,15 +1,15 @@
-Y:/gpt-md/git-versioning\Quick Commands.md:260:Use branches for new features (git checkout -b new-feature), commit changes, and merge back to main when ready.
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:51:git checkout -b branchname # creates branch from current state + switches to the branch
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:52:git checkout branchname    # switches to the branch
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:55:git checkout -b feature-ui
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:56:git checkout -b feature-db
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:57:git checkout -b feature-api
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:130:git checkout feature-newui
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:138:git checkout main
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:199:git checkout feature-ui
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:259:git checkout main
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:272:git checkout v0.2            # moves working directory to that snapshot
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:274:git checkout main            # return to the latest state
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:296:git checkout main        # switch branches freely
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:352:git checkout -b main          # create 'main' from current state
-Y:/gpt-md/git-versioning\Pre-Git Phases, Git branching and workflow.md:364:git checkout -b branchname # creates branch from current state + switches to the branch
+C:/Cheatsheets/Quick Commands.md:260:Use branches for new features (git checkout -b new-feature), commit changes, and merge back to main when ready.
+C:/Cheatsheets/Git branching and workflow.md:51:git checkout -b branchname # creates branch from current state + switches to the branch
+C:/Cheatsheets/Git branching and workflow.md:52:git checkout branchname    # switches to the branch
+C:/Cheatsheets/Git branching and workflow.md:55:git checkout -b feature-ui
+C:/Cheatsheets/Git branching and workflow.md:56:git checkout -b feature-db
+C:/Cheatsheets/Git branching and workflow.md:57:git checkout -b feature-api
+C:/Cheatsheets/Git branching and workflow.md:130:git checkout feature-newui
+C:/Cheatsheets/Git branching and workflow.md:138:git checkout main
+C:/Cheatsheets/Git branching and workflow.md:199:git checkout feature-ui
+C:/Cheatsheets/Git branching and workflow.md:259:git checkout main
+C:/Cheatsheets/Git branching and workflow.md:272:git checkout v0.2            # moves working directory to that snapshot
+C:/Cheatsheets/Git branching and workflow.md:274:git checkout main            # return to the latest state
+C:/Cheatsheets/Git branching and workflow.md:296:git checkout main        # switch branches freely
+C:/Cheatsheets/Git branching and workflow.md:352:git checkout -b main          # create 'main' from current state
+C:/Cheatsheets/Git branching and workflow.md:364:git checkout -b branchname # creates branch from current state + switches to the branch

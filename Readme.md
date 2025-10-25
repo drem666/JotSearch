@@ -3,7 +3,7 @@
 A modern, tabbed desktop search utility built in **Python (PySide6)** that integrates **Ripgrep (rg)** for ultra-fast file content searches.  
 Designed with a professional, dark-themed UI, multi-folder support, and an integrated scratchpad for quick note-taking.
 ---
-
+![Jot Search   1. Search Panel 1. Main Window](screenshots/Jot Search - 1. Search Panel 1. Main Window.png)
 ## ✨ Features
 
 ### 🔍 **Search Tab**
@@ -30,7 +30,7 @@ Designed with a professional, dark-themed UI, multi-folder support, and an integ
   - **Clear** button to reset results.
   - Real-time display of selected folders/files.
 ---
-
+![Jot Search   1. Search Panel 2. Options](screenshots/Jot Search - 1. Search Panel 2. Options.png)
 ### ✍️ **Scratchpad Tab**
 - Lightweight text editor for notes or command snippets.
 - Buttons:  
@@ -38,7 +38,7 @@ Designed with a professional, dark-themed UI, multi-folder support, and an integ
   ✅ `Autosave` (2s delay after last keystroke)
 - Autosave feedback in the status bar.
 ---
-
+![Jot Search   2. Scratchpad](screenshots/Jot Search - 2. ScratchPad.png)
 ### 🎨 **Appearance**
 - **Dark Mode (default)** and **Light Mode** toggle.
 - **BGYOR button palette** for visual clarity:
@@ -51,7 +51,7 @@ Designed with a professional, dark-themed UI, multi-folder support, and an integ
   | Theme Toggle | Violet | `#9b59b6` |
   | Exit/Warnings | Red | `#e74c3c` |
 ---
-
+![Jot Search   3. Toggle Theme](screenshots/Jot Search - 3. Toggle Theme.png)
 ## ⚙️ Installation
 
 ### **Requirements**
