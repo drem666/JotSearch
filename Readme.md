@@ -1,125 +1,136 @@
-# JotSearch - Portable Text Search Tool
+# 🧠 JotSearch v2.0 (PySide6 Edition)
 
-![JotSearch Screenshot](screenshot.png)
+A modern, tabbed desktop search utility built in **Python (PySide6)** that integrates **Ripgrep (rg)** for ultra-fast file content searches.  
+Designed with a professional, dark-themed UI, multi-folder support, and an integrated scratchpad for quick note-taking.
+---
 
-JotSearch is a portable desktop application that provides powerful text search capabilities. It includes a self-contained version of ripgrep (rg) for searching through files.
+## ✨ Features
 
-## Features
+### 🔍 **Search Tab**
+- **Modes:**
+  - Single File
+  - Multiple Files
+  - Single Folder
+  - Multiple Folders
+- **Options:**
+  - Show/Hide File Paths
+  - Filter Unique Commands
+  - Recurse Subfolders (configurable per mode)
+  - Case Sensitivity Toggle
+  - Extension filter (`txt,md,py,js,html,css` by default)
+- **Results Display:**
+  - Clean format:  
+    ```
+    file_path:line:result
+    ```
+  - Optional hiding of file paths.
+  - Commands always shown on new lines.
+- **Controls:**
+  - Press **Enter** to start a search.
+  - **Clear** button to reset results.
+  - Real-time display of selected folders/files.
+---
 
-- 📦 **100% Portable** - No installation required
-- 🔍 Built-in ripgrep search engine
-- 📁 Recursive directory searching
-- 🧩 Filter by multiple file extensions
-- 🔤 Case sensitivity toggle
-- 💬 Exact phrase search using double quotes
-- 📝 Integrated scratchpad with file operations
-- ⚡ Autosave functionality for notes
+### ✍️ **Scratchpad Tab**
+- Lightweight text editor for notes or command snippets.
+- Buttons:  
+  🟢 `New` 🔵 `Open` 🟡 `Save` 🟠 `Save As`  
+  ✅ `Autosave` (2s delay after last keystroke)
+- Autosave feedback in the status bar.
+---
 
-## Getting Started
+### 🎨 **Appearance**
+- **Dark Mode (default)** and **Light Mode** toggle.
+- **BGYOR button palette** for visual clarity:
+  | Action | Color | Hex |
+  |--------|--------|------|
+  | Search | Blue | `#3498db` |
+  | New | Green | `#2ecc71` |
+  | Save | Yellow | `#f1c40f` |
+  | Save As | Orange | `#e67e22` |
+  | Theme Toggle | Violet | `#9b59b6` |
+  | Exit/Warnings | Red | `#e74c3c` |
+---
 
-### Windows Users
-1. Download the `JotSearch.zip` package
-2. Extract to any folder
-3. Run `JotSearch.exe`
+## ⚙️ Installation
 
-### macOS/Linux Users
-1. Ensure you have Python 3.6+ installed
-2. Download the `JotSearch.py` file
-3. Run: `python3 JotSearch.py`
-
-## First Run Setup
-
-On first launch:
-1. The application will detect if ripgrep is installed
-2. If not found, it will offer to download a portable version
-3. Approve the download to install ripgrep in the application folder
-
-![Ripgrep Installation Prompt](install-prompt.png)
-
-## Usage
-
-### Search Features
-1. Click "Choose Folder" to select a directory to search
-2. Enter your search query
-3. (Optional) Specify file extensions (comma-separated)
-4. (Optional) Check "Case Sensitive" for exact case matching
-5. Press Enter or click "Search"
-
-### Scratchpad Features
-- **New**: Create a new scratchpad
-- **Open**: Load a text file
-- **Save**: Save to current file
-- **Save As**: Save to a new file
-- **Autosave**: Automatically save changes to current file
-
-## Portable Operation
-
-- The application stores all data in its own directory
-- Ripgrep is installed in the `bin` subfolder
-- You can move the entire folder to different computers
-- All settings and scratchpad files are self-contained
-
-## Manual Installation (Advanced)
-
-If automatic download fails:
-1. Download the appropriate ripgrep version:
-   - Windows: [ripgrep-x86_64-pc-windows-msvc.zip](https://github.com/BurntSushi/ripgrep/releases)
-   - macOS: [ripgrep-x86_64-apple-darwin.tar.gz](https://github.com/BurntSushi/ripgrep/releases)
-   - Linux: [ripgrep-x86_64-unknown-linux-musl.tar.gz](https://github.com/BurntSushi/ripgrep/releases)
-2. Extract the zip file
-3. Place the `rg` (or `rg.exe` on Windows) in the `bin` folder
-
-## Troubleshooting
-
-### Common Issues
-1. **Download fails**:
-   - Check your internet connection
-   - Download manually (see instructions above)
-   - Place the executable in the `bin` folder
-
-2. **Permission errors** (macOS/Linux): 
+### **Requirements**
+- Python ≥ 3.9
+- Dependencies:
 ```bash
-   chmod +x bin/rg
+  pip install PySide6 requests
+```  
+
+Optional (for developers):
+```bash
+pip install pyinstaller
 ```
-3. **Search not working**:
-Ensure the bin folder contains the ripgrep executable
-Verify the folder selection is correct
-Try simple queries first
 
-## Distribution Packages
-# Pre-built packages include:
-Windows: JotSearch.exe (PyInstaller build)
-macOS: JotSearch.app (PyInstaller build)
-Linux: JotSearch executable
+🚀 Running the App
+Run directly:
+```bash
+python JotSearch.py
+```
+Or create a packaged executable (Windows example):
+```bash
+pyinstaller --noconsole --onefile JotSearch.py
+```
 
-## License
-This project is licensed under the MIT License - see the LICENSE file for details.
+⚡ Ripgrep Integration
+About Ripgrep
+JotSearch uses Ripgrep (rg) — a blazing-fast text search engine written in Rust.
+If Ripgrep is not installed, JotSearch will automatically download a portable binary suitable for your OS.
 
-## Key Features of the Portable Solution
+Where it’s stored
+Downloaded binaries are saved in:
+<app_folder>/bin/rg(.exe)
 
-1. **Automatic Ripgrep Installation**:
-   - Detects missing ripgrep on first run
-   - Downloads the appropriate version for the OS
-   - Installs it in the `bin` subdirectory
+Manual Setup (optional)
+If automatic installation fails, you can manually install rg:
 
-2. **Self-Contained Operation**:
-   - All files stay within the application directory
-   - No system-wide installation required
-   - Easy to move between computers
+Windows
+Download the ZIP from:
+https://github.com/BurntSushi/ripgrep/releases/latest
+Extract rg.exe to:
+JotSearch/bin/
 
-3. **Cross-Platform Support**:
-   - Handles Windows, macOS, and Linux
-   - Automatically selects correct architecture
-   - Sets executable permissions appropriately
+macOS / Linux
+Use your package manager:
+brew install ripgrep
+# or
+sudo apt install ripgrep
 
-4. **Graceful Fallback**:
-   - Uses system ripgrep if available
-   - Offers manual installation instructions
-   - Provides clear error messages
+📄 License Information
+JotSearch License (MIT)
+MIT License
 
-5. **User-Friendly Experience**:
-   - Simple yes/no installation prompt
-   - Progress updates during download
-   - Status bar notifications
+Ripgrep License (MIT / Unlicense)
+Ripgrep is developed by Andrew Gallant and licensed under either:
 
-This implementation makes JotSearch truly portable - users can run it from a USB drive or cloud storage without any system dependencies. The automatic download feature ensures a smooth first-run experience for non-technical users.
+The MIT License, or
+The Unlicense (public domain).
+
+For more details, visit:
+https://github.com/BurntSushi/ripgrep
+
+📁 Project Structure
+JotSearch/
+├── JotSearch.py           # Main PySide6 GUI
+├── README.md              # Documentation (this file)
+├── screenshots/screenshot.png
+├── scratchpad/custom files
+├── bin/
+│   └── rg(.exe)           # Ripgrep binary (auto-downloaded)
+└── requirements.txt       # Optional dependency list
+
+🧪 Debug & Development
+To enable debug printouts (for testing):
+Add print() statements in key methods: run_search, autosave_now, pick_target.
+All GUI updates are safe to trigger from within main thread (Qt event loop safe).
+
+🧰 Credits
+Ripgrep by Andrew Gallant (BurntSushi)
+PySide6 by The Qt Company
+Concept & development: drem666
+
+“Fast. Focused. Functional. — JotSearch brings Ripgrep power into a beautiful desktop interface.”

@@ -108,6 +108,9 @@ class JotSearchApp(QWidget):
         self.pick_btn.clicked.connect(self.pick_target)
         mode_layout.addWidget(self.pick_btn)
         mode_box.setLayout(mode_layout)
+        self.path_label = QLabel("No files/folders selected")
+        self.path_label.setWordWrap(True)
+        layout.addWidget(self.path_label)
 
         options_box = QGroupBox("Options")
         grid = QGridLayout()
@@ -197,6 +200,13 @@ class JotSearchApp(QWidget):
             folders = QFileDialog.getExistingDirectory(self, "Select First Folder")
             if folders:
                 self.search_paths.append(folders)
+        if self.search_paths:
+            shown = " | ".join(self.search_paths[:3])
+            if len(self.search_paths) > 3:
+                shown += f" ... (+{len(self.search_paths) - 3} more)"
+            self.path_label.setText(f"<b>Selected:</b> {shown}")
+        else:
+            self.path_label.setText("No files/folders selected")
         self.status_bar.showMessage(f"Selected {len(self.search_paths)} paths")
 
     def update_selection_mode(self):
