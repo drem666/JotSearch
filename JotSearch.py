@@ -1,466 +1,309 @@
-# Updated JotSearch.py with Embedded Ripgrep Support
+import sys
 import os
-import subprocess
-import tkinter as tk
 import platform
+import subprocess
 import zipfile
 import requests
 import shutil
 import stat
-from tkinter import filedialog, ttk, messagebox
 from datetime import datetime
 from pathlib import Path
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QTextEdit, QLabel, QPushButton,
+    QFileDialog, QLineEdit, QCheckBox, QComboBox, QMessageBox, QStatusBar, QGroupBox, QGridLayout
+)
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFont
 
-class JotSearchApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("JotSearch v0.5")
-        self.root.geometry("1200x960")
-        self.root.configure(bg="#f0f0f0")
+class JotSearchApp(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("JotSearch v1.0 (PySide6 Edition)")
+        self.resize(1200, 900)
+        self.dark_theme = True
+        self.rg_path = self.setup_ripgrep()
 
-        self.search_folder = ""
+        self.search_paths = []
         self.current_scratchpad_file = None
         self.autosave_enabled = False
-        self.autosave_id = None
-        self.rg_path = self.setup_ripgrep()
-        self.setup_ui()
-        self.setup_menu()
+        self.autosave_timer = QTimer()
+        self.autosave_timer.setSingleShot(True)
+        self.autosave_timer.timeout.connect(self.autosave_now)
+
+        self.init_ui()
+        self.apply_theme()
 
     def setup_ripgrep(self):
-        """Set up ripgrep executable in the application directory"""
-        # Determine platform and architecture
         system = platform.system()
         arch = platform.machine()
-        
-        # Map platform to ripgrep naming convention
         platform_map = {
             "Windows": "x86_64-pc-windows-msvc",
             "Darwin": "aarch64-apple-darwin" if "arm" in arch.lower() else "x86_64-apple-darwin",
             "Linux": "x86_64-unknown-linux-musl"
         }
-        
-        # Create bin directory if it doesn't exist
         bin_dir = Path(__file__).parent / "bin"
         bin_dir.mkdir(exist_ok=True)
-        
-        # Set executable name and path
         exe_name = "rg.exe" if system == "Windows" else "rg"
         rg_path = bin_dir / exe_name
-        
-        # Return system rg if found
         if shutil.which("rg"):
             return "rg"
-        
-        # Return local rg if already exists
         if rg_path.exists():
             return str(rg_path)
-        
-        # If ripgrep not found, offer to download it
-        if not messagebox.askyesno(
-            "Ripgrep Required",
-            "Ripgrep not found. Download portable version to application folder?",
-            icon='question'
-        ):
+
+        msg = QMessageBox()
+        msg.setText("Ripgrep not found. Download portable version?")
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        if msg.exec() == QMessageBox.No:
             return None
-        
         try:
-            # Determine download URL
+            version = "14.1.0"
             platform_str = platform_map.get(system)
-            if not platform_str:
-                messagebox.showerror(
-                    "Unsupported Platform",
-                    f"Portable ripgrep not available for {system}. Please install manually."
-                )
-                return None
-            
-            version = "14.1.0"  # Latest stable version
             url = f"https://github.com/BurntSushi/ripgrep/releases/download/{version}/ripgrep-{version}-{platform_str}.zip"
-            
-            # Download the zip file
-            self.status_var.set("Downloading ripgrep...")
-            self.root.update()
-            
             zip_path = bin_dir / "rg.zip"
-            response = requests.get(url, stream=True)
-            with open(zip_path, 'wb') as f:
-                shutil.copyfileobj(response.raw, f)
-            
-            # Extract the zip file
-            self.status_var.set("Extracting ripgrep...")
-            self.root.update()
-            
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                # Find the executable in the zip file
-                for file in zip_ref.namelist():
+            with requests.get(url, stream=True) as r:
+                with open(zip_path, 'wb') as f:
+                    shutil.copyfileobj(r.raw, f)
+            with zipfile.ZipFile(zip_path, 'r') as z:
+                for file in z.namelist():
                     if file.endswith(exe_name):
-                        zip_ref.extract(file, bin_dir)
+                        z.extract(file, bin_dir)
+                        extracted = bin_dir / file
+                        extracted.rename(rg_path)
                         break
-            
-            # Move executable to bin directory
-            extracted_path = bin_dir / file
-            if extracted_path != rg_path:
-                extracted_path.rename(rg_path)
-            
-            # Set executable permissions on macOS/Linux
             if system != "Windows":
                 rg_path.chmod(rg_path.stat().st_mode | stat.S_IEXEC)
-            
-            # Clean up
             zip_path.unlink()
-            shutil.rmtree(bin_dir / file.split('/')[0], ignore_errors=True)
-            
-            self.status_var.set("Ripgrep installed successfully!")
             return str(rg_path)
-            
         except Exception as e:
-            messagebox.showerror(
-                "Installation Failed",
-                f"Failed to install ripgrep: {str(e)}\nPlease install manually."
-            )
+            QMessageBox.critical(self, "Error", f"Ripgrep install failed: {e}")
             return None
 
-    # ... (rest of the code remains the same until on_search method)
-    def setup_menu(self):
-        menu_bar = tk.Menu(self.root)
-        
-        # File menu
-        file_menu = tk.Menu(menu_bar, tearoff=0)
-        file_menu.add_command(label="New Scratchpad", command=self.new_scratchpad)
-        file_menu.add_command(label="Open Scratchpad", command=self.open_scratchpad)
-        file_menu.add_command(label="Save Scratchpad", command=self.save_scratchpad)
-        file_menu.add_command(label="Save Scratchpad As", command=self.save_scratchpad_as)
-        file_menu.add_separator()
-        file_menu.add_checkbutton(label="Autosave", command=self.toggle_autosave)
-        file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.quit)
-        menu_bar.add_cascade(label="File", menu=file_menu)
-        
-        self.root.config(menu=menu_bar)
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
 
-    def setup_ui(self):
-        # --- Folder Picker ---
-        folder_frame = tk.Frame(self.root, bg="#f0f0f0")
-        folder_frame.pack(pady=10, padx=10, fill=tk.X)
+        self.search_tab = QWidget()
+        self.scratch_tab = QWidget()
 
-        self.folder_label = tk.Label(folder_frame, text="No folder selected", bg="#f0f0f0", anchor="w")
-        self.folder_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.tabs.addTab(self.search_tab, "Search")
+        self.tabs.addTab(self.scratch_tab, "Scratchpad")
 
-        pick_btn = ttk.Button(folder_frame, text="Choose Folder", command=self.choose_folder)
-        pick_btn.pack(side=tk.RIGHT)
+        self.init_search_tab()
+        self.init_scratchpad_tab()
 
-        # --- Search Options ---
-        options_frame = tk.Frame(self.root, bg="#f0f0f0")
-        options_frame.pack(pady=5, padx=10, fill=tk.X)
+        self.status_bar = QStatusBar()
+        layout.addWidget(self.status_bar)
 
-        # Extensions input
-        tk.Label(options_frame, text="Extensions:", bg="#f0f0f0").pack(side=tk.LEFT, padx=(0, 5))
-        self.extensions_entry = ttk.Entry(options_frame, width=30)
-        self.extensions_entry.pack(side=tk.LEFT)
-        self.extensions_entry.insert(0, "txt,md,py,js,html,css")  # Default extensions
+    def init_search_tab(self):
+        layout = QVBoxLayout()
 
-        # Case sensitivity checkbox
-        self.case_sensitive_var = tk.BooleanVar()
-        case_check = ttk.Checkbutton(options_frame, text="Case Sensitive", variable=self.case_sensitive_var)
-        case_check.pack(side=tk.LEFT, padx=(10, 0))
+        mode_box = QGroupBox("Select Mode")
+        mode_layout = QHBoxLayout()
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(["Single File", "Multiple Files", "Single Folder (All Files)", "Multiple Folders"])
+        self.mode_combo.currentIndexChanged.connect(self.update_selection_mode)
+        mode_layout.addWidget(self.mode_combo)
+        self.pick_btn = QPushButton("Select")
+        self.pick_btn.clicked.connect(self.pick_target)
+        mode_layout.addWidget(self.pick_btn)
+        mode_box.setLayout(mode_layout)
 
-        # --- Search Bar ---
-        search_frame = tk.Frame(self.root, bg="#f0f0f0")
-        search_frame.pack(pady=5, padx=10, fill=tk.X)
+        options_box = QGroupBox("Options")
+        grid = QGridLayout()
+        self.show_paths = QCheckBox("Show File Paths")
+        self.show_paths.setChecked(True)
+        self.unique_cmds = QCheckBox("Unique Commands Only")
+        self.recurse = QCheckBox("Recurse Subfolders")
+        self.case_sensitive = QCheckBox("Case Sensitive")
+        grid.addWidget(self.show_paths, 0, 0)
+        grid.addWidget(self.unique_cmds, 0, 1)
+        grid.addWidget(self.recurse, 1, 0)
+        grid.addWidget(self.case_sensitive, 1, 1)
 
-        self.search_entry = ttk.Entry(search_frame, font=("Segoe UI", 12))
-        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.search_entry.bind("<Return>", self.on_search)
+        grid.addWidget(QLabel("Extensions (comma-separated):"), 2, 0)
+        self.ext_entry = QLineEdit("txt,md,py,js,html,css")
+        grid.addWidget(self.ext_entry, 2, 1)
+        options_box.setLayout(grid)
 
-        search_btn = ttk.Button(search_frame, text="Search", command=self.on_search)
-        search_btn.pack(side=tk.RIGHT, padx=(5, 0))
+        search_row = QHBoxLayout()
+        self.search_entry = QLineEdit()
+        self.search_entry.setPlaceholderText("Enter search query")
+        self.search_btn = QPushButton("Search")
+        self.search_btn.clicked.connect(self.run_search)
+        search_row.addWidget(self.search_entry)
+        search_row.addWidget(self.search_btn)
 
-        # --- Results Summary ---
-        self.summary_var = tk.StringVar()
-        self.summary_var.set("Enter search query and select folder")
-        summary_label = tk.Label(self.root, textvariable=self.summary_var, bg="#f0f0f0", anchor="w", padx=10)
-        summary_label.pack(fill=tk.X, pady=(10, 0))
+        self.results_box = QTextEdit()
+        self.results_box.setReadOnly(True)
+        self.results_box.setFont(QFont("Consolas", 10))
 
-        # --- Results Area ---
-        results_frame = tk.Frame(self.root)
-        results_frame.pack(padx=10, pady=5, fill=tk.BOTH, expand=True)
+        self.theme_toggle = QPushButton("Toggle Theme")
+        self.theme_toggle.clicked.connect(self.toggle_theme)
 
-        # Add scrollbar to results
-        scrollbar = tk.Scrollbar(results_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        layout.addWidget(mode_box)
+        layout.addWidget(options_box)
+        layout.addLayout(search_row)
+        layout.addWidget(self.results_box)
+        layout.addWidget(self.theme_toggle, alignment=Qt.AlignRight)
+        self.search_tab.setLayout(layout)
 
-        self.results_box = tk.Text(results_frame, height=15, bg="#ffffff", font=("Consolas", 10), yscrollcommand=scrollbar.set)
-        self.results_box.pack(fill=tk.BOTH, expand=True)
-        self.results_box.insert("end", "Search results will appear here...\n")
-        self.results_box.config(state=tk.DISABLED)  # Make read-only
-        
-        scrollbar.config(command=self.results_box.yview)
+    def init_scratchpad_tab(self):
+        layout = QVBoxLayout()
 
-        # --- Notes Section ---
-        notes_frame = tk.Frame(self.root)
-        notes_frame.pack(padx=10, pady=5, fill=tk.BOTH, expand=False)
+        btn_row = QHBoxLayout()
+        self.new_btn = QPushButton("New")
+        self.open_btn = QPushButton("Open")
+        self.save_btn = QPushButton("Save")
+        self.saveas_btn = QPushButton("Save As")
+        self.autosave_chk = QCheckBox("Autosave")
+        for b in [self.new_btn, self.open_btn, self.save_btn, self.saveas_btn]:
+            btn_row.addWidget(b)
+        btn_row.addWidget(self.autosave_chk)
+        self.new_btn.clicked.connect(self.new_scratchpad)
+        self.open_btn.clicked.connect(self.open_scratchpad)
+        self.save_btn.clicked.connect(self.save_scratchpad)
+        self.saveas_btn.clicked.connect(self.save_scratchpad_as)
+        self.autosave_chk.stateChanged.connect(self.toggle_autosave)
 
-        # Notes header with buttons and checkbox
-        notes_header = tk.Frame(notes_frame, bg="#f0f0f0")
-        notes_header.pack(fill=tk.X)
-        
-        tk.Label(notes_header, text="Scratchpad", bg="#f0f0f0", 
-                font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT)
-        
-        # Button container
-        btn_frame = tk.Frame(notes_header, bg="#f0f0f0")
-        btn_frame.pack(side=tk.RIGHT)
-        
-        ttk.Button(btn_frame, text="New", width=6, 
-                  command=self.new_scratchpad).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_frame, text="Open", width=6, 
-                  command=self.open_scratchpad).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_frame, text="Save", width=6, 
-                  command=self.save_scratchpad).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_frame, text="Save As", width=6, 
-                  command=self.save_scratchpad_as).pack(side=tk.LEFT, padx=2)
-        
-        # Autosave checkbox
-        self.autosave_var = tk.BooleanVar()
-        autosave_check = ttk.Checkbutton(
-            notes_header, 
-            text="Autosave", 
-            variable=self.autosave_var,
-            command=self.toggle_autosave
-        )
-        autosave_check.pack(side=tk.RIGHT, padx=(10, 0))
+        self.notes_box = QTextEdit()
+        self.notes_box.setFont(QFont("Segoe UI", 11))
+        self.notes_box.textChanged.connect(self.schedule_autosave)
 
-        # Add scrollbar to notes
-        notes_scroll = tk.Scrollbar(notes_frame)
-        notes_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        layout.addLayout(btn_row)
+        layout.addWidget(self.notes_box)
+        self.scratch_tab.setLayout(layout)
 
-        self.notes_box = tk.Text(notes_frame, height=8, bg="#fcfcfc", 
-                                font=("Segoe UI", 11), yscrollcommand=notes_scroll.set)
-        self.notes_box.pack(fill=tk.BOTH, expand=True)
-        self.notes_box.insert("end", "Type your notes here...")
-        
-        # Bind text change event for autosave
-        self.notes_box.bind("<KeyRelease>", self.schedule_autosave)
-        notes_scroll.config(command=self.notes_box.yview)
+    def pick_target(self):
+        mode = self.mode_combo.currentIndex()
+        if mode == 0:
+            f, _ = QFileDialog.getOpenFileName(self, "Select File")
+            if f:
+                self.search_paths = [f]
+        elif mode == 1:
+            files, _ = QFileDialog.getOpenFileNames(self, "Select Files")
+            self.search_paths = files
+        elif mode == 2:
+            folder = QFileDialog.getExistingDirectory(self, "Select Folder")
+            if folder:
+                self.search_paths = [folder]
+        elif mode == 3:
+            folders = QFileDialog.getExistingDirectory(self, "Select First Folder")
+            if folders:
+                self.search_paths.append(folders)
+        self.status_bar.showMessage(f"Selected {len(self.search_paths)} paths")
 
-        # --- Status Bar ---
-        self.status_var = tk.StringVar()
-        self.status_var.set("Ready")
-        status_bar = tk.Label(self.root, textvariable=self.status_var, bd=1, relief=tk.SUNKEN, anchor=tk.W)
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+    def update_selection_mode(self):
+        self.search_paths.clear()
 
-    def choose_folder(self):
-        folder = filedialog.askdirectory()
-        if folder:
-            self.search_folder = folder
-            self.folder_label.config(text=folder)
-            self.status_var.set(f"Selected folder: {folder}")
-
-    def on_search(self, event=None):
-        query = self.search_entry.get().strip()
-        if not self.search_folder:
-            self.status_var.set("Please select a folder first")
+    def run_search(self):
+        query = self.search_entry.text().strip()
+        if not query or not self.search_paths:
+            self.status_bar.showMessage("Please enter query and select paths.")
             return
-        if not query:
-            self.status_var.set("Please enter a search query")
-            return
-        
-        # Check if ripgrep is available
         if not self.rg_path:
-            self.status_var.set("Error: ripgrep not available. Searches disabled.")
+            self.status_bar.showMessage("Ripgrep not available.")
             return
-            
-        # Prepare ripgrep command
-        cmd = [self.rg_path, "--color=never", "--line-number", "--encoding", "auto"]
-        
-        # Handle case sensitivity
-        if not self.case_sensitive_var.get():
-            cmd.append("--ignore-case")
-            
-        # Handle exact phrase (double quotes)
-        if query.startswith('"') and query.endswith('"'):
-            cmd.append("--fixed-strings")
-            query = query[1:-1]  # Remove quotes
-            
-        # Handle file extensions
-        exts = [ext.strip() for ext in self.extensions_entry.get().split(",") if ext.strip()]
-        if exts:
-            cmd.append("--type-add")
-            cmd.append(f"custom:*.{{{','.join(exts)}}}")
-            cmd.append("--type")
-            cmd.append("custom")
-        
-        cmd.extend([query, self.search_folder])
-        
-        # Execute search
-        try:
-            self.status_var.set("Searching...")
-            self.root.update_idletasks()  # Update UI
-            
-            # Use universal_newlines=True to handle text properly
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', check=True)
-            output = result.stdout
-            
-            # Update results
-            self.results_box.config(state=tk.NORMAL)
-            self.results_box.delete("1.0", "end")
-            
-            if output:
-                self.results_box.insert("end", output)
-                result_count = len(output.splitlines())
-                self.summary_var.set(f"Found {result_count} results for: '{query}'")
-            else:
-                self.results_box.insert("end", "No results found")
-                self.summary_var.set(f"No results found for: '{query}'")
-                
-            self.results_box.config(state=tk.DISABLED)
-            self.status_var.set(f"Search completed at {datetime.now().strftime('%H:%M:%S')}")
-            
-        except subprocess.CalledProcessError as e:
-            if e.returncode == 1:  # No matches found
-                self.results_box.config(state=tk.NORMAL)
-                self.results_box.delete("1.0", "end")
-                self.results_box.insert("end", "No results found")
-                self.results_box.config(state=tk.DISABLED)
-                self.summary_var.set(f"No results found for: '{query}'")
-                self.status_var.set("Search completed with no results")
-            else:
-                # Try to get error output with proper encoding handling
-                error_output = e.stderr
-                if not error_output:
-                    try:
-                        error_output = e.stderr.decode('utf-8', 'replace')
-                    except:
-                        error_output = "Unknown error (could not decode stderr)"
-                
-                self.status_var.set(f"Search error: {error_output.strip()}")
-                self.results_box.config(state=tk.NORMAL)
-                self.results_box.delete("1.0", "end")
-                self.results_box.insert("end", f"Search error:\n{error_output}")
-                self.results_box.config(state=tk.DISABLED)
-                self.summary_var.set(f"Error searching for: '{query}'")
-        except Exception as e:
-            self.status_var.set(f"Error: {str(e)}")
-            self.results_box.config(state=tk.NORMAL)
-            self.results_box.delete("1.0", "end")
-            self.results_box.insert("end", f"Error: {str(e)}")
-            self.results_box.config(state=tk.DISABLED)
-            self.summary_var.set(f"Error occurred during search")
+
+        results = []
+        seen_cmds = set()
+        for path in self.search_paths:
+            cmd = [self.rg_path, "--color=never", "--line-number"]
+            if not self.case_sensitive.isChecked():
+                cmd.append("--ignore-case")
+            if self.recurse.isChecked():
+                cmd.append("--hidden")
+            exts = [e.strip() for e in self.ext_entry.text().split(',') if e.strip()]
+            if exts:
+                cmd += ["--type-add", f"custom:*.{{{','.join(exts)}}}", "--type", "custom"]
+            cmd += [query, path]
+
+            try:
+                proc = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+                out = proc.stdout.strip()
+                if out:
+                    blocks = out.splitlines()
+                    for line in blocks:
+                        cmd_line = line.strip()
+                        if self.unique_cmds.isChecked() and cmd_line in seen_cmds:
+                            continue
+                        seen_cmds.add(cmd_line)
+                        if self.show_paths.isChecked():
+                            results.append(f"{path}:\n{cmd_line}\n")
+                        else:
+                            results.append(f"{cmd_line}\n")
+            except Exception as e:
+                results.append(f"Error searching {path}: {e}\n")
+
+        output = "\n".join(results) if results else "No results found."
+        self.results_box.setPlainText(output)
+        self.status_bar.showMessage(f"Search completed at {datetime.now().strftime('%H:%M:%S')}")
 
     def new_scratchpad(self):
-        if self.notes_box.get("1.0", "end-1c").strip() and not self.current_scratchpad_file:
-            if not messagebox.askyesno(
-                "Unsaved Changes", 
-                "You have unsaved changes. Create new scratchpad anyway?",
-                icon='warning'
-            ):
-                return
-                
-        self.notes_box.delete("1.0", "end")
+        self.notes_box.clear()
         self.current_scratchpad_file = None
-        self.status_var.set("Created new scratchpad")
+        self.status_bar.showMessage("New scratchpad.")
 
     def open_scratchpad(self):
-        if self.notes_box.get("1.0", "end-1c").strip() and not self.current_scratchpad_file:
-            if not messagebox.askyesno(
-                "Unsaved Changes", 
-                "You have unsaved changes. Open new file anyway?",
-                icon='warning'
-            ):
-                return
-                
-        file_path = filedialog.askopenfilename(
-            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")]
-        )
-        if file_path:
-            try:
-                # Try multiple encodings to handle different file types
-                for encoding in ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']:
-                    try:
-                        with open(file_path, "r", encoding=encoding) as file:
-                            content = file.read()
-                        self.notes_box.delete("1.0", "end")
-                        self.notes_box.insert("end", content)
-                        self.current_scratchpad_file = file_path
-                        self.status_var.set(f"Loaded scratchpad: {file_path} ({encoding})")
-                        return
-                    except UnicodeDecodeError:
-                        continue
-                
-                # If all encodings fail, try with errors='replace'
-                with open(file_path, "r", encoding='utf-8', errors='replace') as file:
-                    content = file.read()
-                self.notes_box.delete("1.0", "end")
-                self.notes_box.insert("end", content)
-                self.current_scratchpad_file = file_path
-                self.status_var.set(f"Loaded scratchpad (with replacement chars): {file_path}")
-                
-            except Exception as e:
-                self.status_var.set(f"Error loading file: {str(e)}")
+        f, _ = QFileDialog.getOpenFileName(self, "Open Scratchpad", filter="Text Files (*.txt);;All Files (*)")
+        if f:
+            with open(f, 'r', encoding='utf-8', errors='replace') as file:
+                self.notes_box.setPlainText(file.read())
+            self.current_scratchpad_file = f
+            self.status_bar.showMessage(f"Loaded {f}")
 
     def save_scratchpad(self):
         if self.current_scratchpad_file:
-            self._save_to_file(self.current_scratchpad_file)
+            with open(self.current_scratchpad_file, 'w', encoding='utf-8') as file:
+                file.write(self.notes_box.toPlainText())
+            self.status_bar.showMessage(f"Saved {self.current_scratchpad_file}")
         else:
             self.save_scratchpad_as()
 
     def save_scratchpad_as(self):
-        file_path = filedialog.asksaveasfilename(
-            defaultextension=".txt",
-            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")]
-        )
-        if file_path:
-            self.current_scratchpad_file = file_path
-            self._save_to_file(file_path)
-
-    def _save_to_file(self, file_path):
-        try:
-            content = self.notes_box.get("1.0", "end-1c")
-            with open(file_path, "w", encoding='utf-8') as file:
-                file.write(content)
-            self.status_var.set(f"Scratchpad saved: {file_path}")
-            return True
-        except Exception as e:
-            self.status_var.set(f"Error saving file: {str(e)}")
-            return False
+        f, _ = QFileDialog.getSaveFileName(self, "Save Scratchpad As", filter="Text Files (*.txt);;All Files (*)")
+        if f:
+            self.current_scratchpad_file = f
+            self.save_scratchpad()
 
     def toggle_autosave(self):
-        self.autosave_enabled = self.autosave_var.get()
-        status = "ON" if self.autosave_enabled else "OFF"
-        self.status_var.set(f"Autosave {status} - Changes will be saved automatically")
-        
-        # If enabling autosave and we have a current file, save immediately
-        if self.autosave_enabled and self.current_scratchpad_file:
-            self.autosave_now()
+        self.autosave_enabled = self.autosave_chk.isChecked()
+        if self.autosave_enabled:
+            self.status_bar.showMessage("Autosave ON")
+        else:
+            self.status_bar.showMessage("Autosave OFF")
 
-    def schedule_autosave(self, event=None):
+    def schedule_autosave(self):
         if self.autosave_enabled and self.current_scratchpad_file:
-            # Cancel previous scheduled save if any
-            if self.autosave_id:
-                self.root.after_cancel(self.autosave_id)
-                
-            # Schedule new save
-            self.autosave_id = self.root.after(2000, self.autosave_now)
+            self.autosave_timer.start(2000)
 
     def autosave_now(self):
         if self.autosave_enabled and self.current_scratchpad_file:
-            if self._save_to_file(self.current_scratchpad_file):
-                self.status_var.set(f"Autosaved scratchpad at {datetime.now().strftime('%H:%M:%S')}")
-                
-    def on_closing(self):
-        # Check for unsaved changes
-        if self.notes_box.get("1.0", "end-1c").strip() and not self.current_scratchpad_file:
-            if messagebox.askyesno(
-                "Unsaved Changes", 
-                "You have unsaved changes. Exit anyway?",
-                icon='warning'
-            ):
-                self.root.destroy()
-        else:
-            self.root.destroy()
+            self.save_scratchpad()
+            self.status_bar.showMessage(f"Autosaved at {datetime.now().strftime('%H:%M:%S')}")
 
-# --- Run the app ---
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = JotSearchApp(root)
-    root.protocol("WM_DELETE_WINDOW", app.on_closing)
-    root.mainloop()
+    def toggle_theme(self):
+        self.dark_theme = not self.dark_theme
+        self.apply_theme()
+
+    def apply_theme(self):
+        if self.dark_theme:
+            bg, text = "#1e1e1e", "#f0f0f0"
+        else:
+            bg, text = "#f7f7f7", "#202020"
+        self.setStyleSheet(f"""
+            QWidget {{background-color:{bg}; color:{text};}}
+            QPushButton {{border-radius:6px; padding:6px 12px; color:#fff;}}
+            QPushButton[text='Search'] {{background-color:#3498db;}}
+            QPushButton[text='New'] {{background-color:#2ecc71;}}
+            QPushButton[text='Open'] {{background-color:#3498db;}}
+            QPushButton[text='Save'] {{background-color:#f1c40f;}}
+            QPushButton[text='Save As'] {{background-color:#e67e22;}}
+            QPushButton[text='Toggle Theme'] {{background-color:#9b59b6;}}
+        """)
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    win = JotSearchApp()
+    win.show()
+    sys.exit(app.exec())
