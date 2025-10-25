@@ -249,15 +249,25 @@ class JotSearchApp(QWidget):
                         if self.unique_cmds.isChecked() and cmd_line in seen_cmds:
                             continue
                         seen_cmds.add(cmd_line)
-                        # Strip folder-only prefixes like "Y:/gpt-md/git-versioning:"
+                        # Skip folder-only headers like "Y:/folder:"
                         if cmd_line.endswith(":") or cmd_line.strip().endswith(":"):
                             continue
+
+                        parts = cmd_line.split(":", 2)
+
                         if self.show_paths.isChecked():
+                            # Show full path:line:command in folder mode
                             results.append(f"{cmd_line}\n")
                         else:
-                            # Remove file path prefix (everything before first colon)
-                            parts = cmd_line.split(":", 2)
-                            cmd_text = parts[-1] if len(parts) > 1 else cmd_line
+                            # Hide file path — only show the command text
+                            if len(parts) == 3:
+                                # folder mode: drop file + line number
+                                cmd_text = parts[2]
+                            elif len(parts) == 2:
+                                # file mode: drop line number
+                                cmd_text = parts[1]
+                            else:
+                                cmd_text = cmd_line
                             results.append(f"{cmd_text.strip()}\n")
 
             except Exception as e:

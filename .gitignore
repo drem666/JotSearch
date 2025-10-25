@@ -4,6 +4,9 @@ DRAFTS
 INFO
 data
 DebugLogs
+# Specific
+build_jotsearch.py
+*.spec
 
 */config.json
 */settings.json
