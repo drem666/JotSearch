@@ -159,7 +159,8 @@ class FolderTreeDialog(QDialog):
         item = QTreeWidgetItem([path.name or str(path)])
         item.setData(0, Qt.UserRole, str(path))
         item.setCheckState(0, Qt.Unchecked)
-        item.setFlags(item.flags() | Qt.ItemIsAutoTristate | Qt.ItemIsUserCheckable)
+        # NOTE: do NOT use Qt.ItemIsAutoTristate — it conflicts with manual propagation
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
         return item
 
     def _add_children(self, parent_item, path: Path, depth, max_depth):
@@ -178,30 +179,46 @@ class FolderTreeDialog(QDialog):
         if self._building:
             return
         self._building = True
-        state = item.checkState(0)
-        self._propagate_down(item, state)
-        self._propagate_up(item)
-        self._building = False
+        self.tree.blockSignals(True)
+        try:
+            state = item.checkState(0)
+            # Only propagate down when the user explicitly checked/unchecked
+            # (not when we set PartiallyChecked internally)
+            if state in (Qt.Checked, Qt.Unchecked):
+                self._propagate_down(item, state)
+            self._propagate_up(item)
+        finally:
+            self.tree.blockSignals(False)
+            self._building = False
 
     def _propagate_down(self, item, state):
+        """Recursively set all descendants to the same binary state."""
         for i in range(item.childCount()):
             child = item.child(i)
             child.setCheckState(0, state)
             self._propagate_down(child, state)
 
     def _propagate_up(self, item):
+        """Walk up the tree recalculating parent states from children."""
         parent = item.parent()
-        if not parent:
+        if parent is None:
             return
-        checked = sum(1 for i in range(parent.childCount()) if parent.child(i).checkState(0) == Qt.Checked)
-        partial = sum(1 for i in range(parent.childCount()) if parent.child(i).checkState(0) == Qt.PartiallyChecked)
         total = parent.childCount()
+        checked = 0
+        partial = 0
+        for i in range(total):
+            s = parent.child(i).checkState(0)
+            if s == Qt.Checked:
+                checked += 1
+            elif s == Qt.PartiallyChecked:
+                partial += 1
         if checked == total:
             parent.setCheckState(0, Qt.Checked)
         elif checked == 0 and partial == 0:
             parent.setCheckState(0, Qt.Unchecked)
         else:
             parent.setCheckState(0, Qt.PartiallyChecked)
+        # Continue walking up — but guard: don't recurse into the item we just changed
         self._propagate_up(parent)
 
     def get_selected_folders(self):
@@ -481,44 +498,48 @@ class JotSearchApp(QMainWindow):
         self.setStatusBar(self.status_bar)
 
     def _build_menubar(self):
+        from PySide6.QtWidgets import QToolBar, QWidgetAction
         mb = self.menuBar()
 
-        # View menu → Theme switcher
+        # ── View menu (also has theme submenu for keyboard navigation) ──
         view_menu = mb.addMenu("View")
-        theme_label = QAction("Theme:", self)
-        theme_label.setEnabled(False)
-        view_menu.addAction(theme_label)
+        for name in self.themes:
+            act = QAction(name, self)
+            act.triggered.connect(lambda checked=False, n=name: self.apply_theme(n))
+            view_menu.addAction(act)
 
-        self.theme_combo_action_widget = QComboBox()
-        self.theme_combo_action_widget.setMinimumWidth(140)
+        # ── Theme combo + gear directly embedded in the menu bar ──
+        # We use a QToolBar docked at the top so widgets sit right on the bar.
+        self._top_toolbar = self.addToolBar("ThemeBar")
+        self._top_toolbar.setMovable(False)
+        self._top_toolbar.setFloatable(False)
+        self._top_toolbar.setStyleSheet("QToolBar { spacing: 4px; padding: 2px 6px; border: none; }")
+
+        lbl = QLabel("  Theme:")
+        self._top_toolbar.addWidget(lbl)
+
+        self.theme_combo = QComboBox()
+        self.theme_combo.setMinimumWidth(130)
+        self.theme_combo.setToolTip("Switch UI theme instantly")
         if self.themes:
-            self.theme_combo_action_widget.addItems(list(self.themes.keys()))
-            idx = self.theme_combo_action_widget.findText(self.current_theme)
+            self.theme_combo.addItems(list(self.themes.keys()))
+            idx = self.theme_combo.findText(self.current_theme)
             if idx >= 0:
-                self.theme_combo_action_widget.setCurrentIndex(idx)
+                self.theme_combo.setCurrentIndex(idx)
         else:
-            self.theme_combo_action_widget.addItem("No themes found")
-            self.theme_combo_action_widget.setEnabled(False)
-        self.theme_combo_action_widget.currentTextChanged.connect(self._on_theme_changed)
+            self.theme_combo.addItem("No themes found")
+            self.theme_combo.setEnabled(False)
+        self.theme_combo.currentTextChanged.connect(self._on_theme_changed)
+        self._top_toolbar.addWidget(self.theme_combo)
 
-        theme_widget_action = view_menu.widgetForAction if hasattr(view_menu, 'widgetForAction') else None
-        # Use a container widget added as a menu action
-        from PySide6.QtWidgets import QWidgetAction
-        wa = QWidgetAction(self)
-        container = QWidget()
-        row = QHBoxLayout(container)
-        row.setContentsMargins(8, 4, 8, 4)
-        row.addWidget(QLabel("Select Theme:"))
-        row.addWidget(self.theme_combo_action_widget)
-        wa.setDefaultWidget(container)
-        view_menu.addAction(wa)
+        self._top_toolbar.addSeparator()
 
-        # Settings gear in menu bar (right side via corner widget)
         gear_btn = QToolButton()
-        gear_btn.setText("⚙ Settings")
-        gear_btn.setToolTip("Open Settings")
+        gear_btn.setText("⚙")
+        gear_btn.setToolTip("Settings")
+        gear_btn.setMinimumWidth(32)
         gear_btn.clicked.connect(self.open_settings)
-        mb.setCornerWidget(gear_btn, Qt.TopRightCorner)
+        self._top_toolbar.addWidget(gear_btn)
 
     def _on_theme_changed(self, name):
         if name and name in self.themes:
@@ -643,9 +664,11 @@ class JotSearchApp(QMainWindow):
         layout.addWidget(self.notes_box)
         self.scratch_tab.setLayout(layout)
 
-        # Init highlighter
+        # Init highlighter AFTER combo is populated so initial language is applied
         if PYGMENTS_OK:
             self.highlighter = PygmentsHighlighter(self.notes_box.document(), "markdown")
+            # Trigger the combo signal now that highlighter exists
+            self._on_language_changed(self.lang_combo.currentText())
 
     def _populate_language_combo(self):
         self.lang_combo.addItem("Plain Text", "text")
@@ -663,22 +686,59 @@ class JotSearchApp(QMainWindow):
         ]
         for label, alias in common:
             self.lang_combo.addItem(label, alias)
-        # Set default to Markdown
+        # Default to Markdown
         idx = self.lang_combo.findData("markdown")
         if idx >= 0:
             self.lang_combo.setCurrentIndex(idx)
 
     def _on_language_changed(self, text):
+        """Called when user manually changes the dropdown OR auto-detect sets it.
+        Always applies the chosen language to the highlighter."""
         if not PYGMENTS_OK or self.highlighter is None:
             return
         alias = self.lang_combo.currentData()
-        if alias == "text" or not alias:
+        if not alias or alias == "text":
+            # Plain text — detach highlighter by setting a non-existent lexer gracefully
             self.highlighter.set_language("text")
         else:
-            try:
-                self.highlighter.set_language(alias)
-            except Exception:
-                pass
+            self.highlighter.set_language(alias)
+
+    def _autodetect_language(self, filepath: str):
+        """Set the language combo based on file extension. Called on file open.
+        The user can override afterwards via the dropdown."""
+        ext_map = {
+            ".md": "markdown", ".markdown": "markdown",
+            ".py": "python", ".pyw": "python",
+            ".js": "javascript", ".mjs": "javascript",
+            ".ts": "typescript", ".tsx": "typescript",
+            ".html": "html", ".htm": "html",
+            ".css": "css", ".scss": "css",
+            ".json": "json", ".jsonc": "json",
+            ".yaml": "yaml", ".yml": "yaml",
+            ".xml": "xml", ".svg": "xml",
+            ".sh": "bash", ".bash": "bash", ".zsh": "bash",
+            ".sql": "sql",
+            ".c": "c", ".h": "c",
+            ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp",
+            ".cs": "csharp",
+            ".java": "java",
+            ".rs": "rust",
+            ".go": "go",
+            ".rb": "ruby",
+            ".php": "php",
+            ".kt": "kotlin",
+            ".swift": "swift",
+            ".r": "r", ".R": "r",
+            ".toml": "toml",
+            ".txt": "text",
+        }
+        ext = Path(filepath).suffix.lower()
+        alias = ext_map.get(ext)
+        if not alias:
+            return  # unknown extension — leave current selection
+        idx = self.lang_combo.findData(alias)
+        if idx >= 0:
+            self.lang_combo.setCurrentIndex(idx)
 
     # ── Target picking ────────────────────────────────────────────────────
     def pick_target(self):
@@ -749,11 +809,12 @@ class JotSearchApp(QMainWindow):
                 cmd += ["--type-add", f"custom:*.{{{','.join(exts)}}}", "--type", "custom"]
 
             if is_command_mode:
-                # Command mode: anchor to start of line, treat as regex
-                pattern = rf"^\s*{re.escape(query)}"
-                cmd.append("--engine=default")
+                # Command mode: regex search — matches query word anywhere on the line
+                # e.g. "docker" matches "wsl -d docker-desktop" AND "docker run ..."
+                # Users can still enter raw regex patterns like "docker\s+run"
+                pattern = re.escape(query)
             else:
-                # Regular mode: plain fixed-string search anywhere
+                # Regular mode: plain fixed-string, matches any text occurrence
                 cmd += ["--fixed-strings"]
                 pattern = query
 
@@ -811,16 +872,8 @@ class JotSearchApp(QMainWindow):
                 self.notes_box.setPlainText(fh.read())
             self.current_scratchpad_file = f
             self.status_bar.showMessage(f"Loaded: {f}")
-            # Auto-detect language from extension
-            ext = Path(f).suffix.lower()
-            if ext == ".md" and PYGMENTS_OK:
-                idx = self.lang_combo.findData("markdown")
-                if idx >= 0:
-                    self.lang_combo.setCurrentIndex(idx)
-            elif ext in (".py",) and PYGMENTS_OK:
-                idx = self.lang_combo.findData("python")
-                if idx >= 0:
-                    self.lang_combo.setCurrentIndex(idx)
+            if PYGMENTS_OK:
+                self._autodetect_language(f)
 
     def save_scratchpad(self):
         if self.current_scratchpad_file:
@@ -868,6 +921,13 @@ class JotSearchApp(QMainWindow):
             self.current_theme = name
             self.settings["last_theme"] = name
             self._save_settings()
+            # Sync toolbar combo without re-triggering apply_theme
+            if hasattr(self, 'theme_combo'):
+                self.theme_combo.blockSignals(True)
+                idx = self.theme_combo.findText(name)
+                if idx >= 0:
+                    self.theme_combo.setCurrentIndex(idx)
+                self.theme_combo.blockSignals(False)
             self.status_bar.showMessage(f"Theme: {name}", 2000)
         else:
             self.status_bar.showMessage(f"Theme '{name}' not found in themes.qss", 3000)
