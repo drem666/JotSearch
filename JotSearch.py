@@ -371,6 +371,7 @@ class JotSearchApp(QMainWindow):
         self.init_ui()
         self.apply_theme(self.current_theme)
         self._apply_startup_settings()
+        self._restore_geometry()
 
     # ── Settings ─────────────────────────────────────────────────────────
     def _load_settings(self):
@@ -932,7 +933,29 @@ class JotSearchApp(QMainWindow):
         else:
             self.status_bar.showMessage(f"Theme '{name}' not found in themes.qss", 3000)
 
-    # ── Settings dialog ───────────────────────────────────────────────────
+    def _restore_geometry(self):
+        geom = self.settings.get("window_geometry")
+        if geom:
+            try:
+                from PySide6.QtCore import QByteArray
+                self.restoreGeometry(QByteArray.fromBase64(geom.encode()))
+                return
+            except Exception:
+                pass
+        # Fallback: default size + centered on screen
+        self.resize(1200, 800)
+        screen = QApplication.primaryScreen().availableGeometry()
+        self.move(
+            (screen.width() - self.width()) // 2,
+            (screen.height() - self.height()) // 2
+        )
+
+    def closeEvent(self, event):
+        from PySide6.QtCore import QByteArray
+        self.settings["window_geometry"] = self.saveGeometry().toBase64().data().decode()
+        self._save_settings()
+        super().closeEvent(event)
+
     def open_settings(self):
         dlg = SettingsDialog(self, config=self.settings.copy(), config_path=self.settings_path)
         if dlg.exec() == QDialog.Accepted:
