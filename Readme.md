@@ -3,7 +3,7 @@
 A modern, tabbed desktop search utility built in **Python (PySide6)** that integrates **Ripgrep (rg)** for ultra-fast file content searches.  
 Designed with a professional, dark-themed UI, multi-folder support, and an integrated scratchpad for quick note-taking.
 ---
-![Jot Search   1. Search Panel 1. Main Window](screenshots/Jot Search - 1. Search Panel 1. Main Window.png)
+![Jotsearch 1.Searchpanel1.Mainwindow](screenshots/JotSearch-1.SearchPanel1.MainWindow.png)
 
 ## v2.0 — Feature Release
 
@@ -28,7 +28,7 @@ Designed with a professional, dark-themed UI, multi-folder support, and an integ
   - **Scratchpad directory** — default folder for open/save dialogs; falls back to the script folder if unset
   - **Autosave mode** — `Timed` (fires after a configurable interval of inactivity) or `On Change` (saves immediately on every edit)
   - **Autosave interval** — configurable in seconds (1–300)
-
+![Jotsearch 4.Settings](screenshots/JotSearch-4.Settings.png)
 #### 3. Save As — Format Restricted to md / txt
 - Save As dialog now filters to **Markdown (*.md)** and **Text Files (*.txt)** only
 - If no extension is provided, `.md` is appended automatically
@@ -60,6 +60,8 @@ Designed with a professional, dark-themed UI, multi-folder support, and an integ
 - Button colors use semantic assignments: Search = blue, Clear = red, New = green, Open = blue, Save = amber, Save As = orange
 - Adding new themes requires only a new `/*Theme: Name*/` … `/*Theme End*/` block — the app picks them up automatically on next launch
 
+## Known Bugs
+- View and Theme dropdown redundant. Need to be removed. No Time
 ---
 
 ## v1.0 — Initial Release
@@ -96,7 +98,7 @@ Designed with a professional, dark-themed UI, multi-folder support, and an integ
   - **Clear** button to reset results.
   - Real-time display of selected folders/files.
 ---
-![Jot Search   1. Search Panel 2. Options](screenshots/Jot Search - 1. Search Panel 2. Options.png)
+![Jotsearch 1.Searchpanel2.Options](screenshots/JotSearch-1.SearchPanel2.Options.png)
 ### ✍️ **Scratchpad Tab**
 - Lightweight text editor for notes or command snippets.
 - Buttons:  
@@ -104,7 +106,7 @@ Designed with a professional, dark-themed UI, multi-folder support, and an integ
   ✅ `Autosave` (2s delay after last keystroke)
 - Autosave feedback in the status bar.
 ---
-![Jot Search   2. Scratchpad](screenshots/Jot Search - 2. ScratchPad.png)
+![Jotsearch 2.Scratchpad](screenshots/JotSearch-2.ScratchPad.png)
 ### 🎨 **Appearance**
 - **Dark Mode (default)** and **Light Mode** toggle.
 - **BGYOR button palette** for visual clarity:
@@ -117,7 +119,7 @@ Designed with a professional, dark-themed UI, multi-folder support, and an integ
   | Theme Toggle | Violet | `#9b59b6` |
   | Exit/Warnings | Red | `#e74c3c` |
 ---
-![Jot Search   3. Toggle Theme](screenshots/Jot Search - 3. Toggle Theme.png)
+![Jotsearch 3.Toggletheme](screenshots/JotSearch-3.ToggleTheme.png)
 ## ⚙️ Installation
 
 ### **Requirements**
